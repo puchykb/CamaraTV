@@ -19,8 +19,6 @@ import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
-import java.io.IOException
-import java.util.concurrent.Executors
 
 /**
  * Full-screen live view of one camera.
@@ -33,13 +31,9 @@ class MainActivity : Activity(), TextureView.SurfaceTextureListener {
     private lateinit var videoView: TextureView
     private lateinit var statusView: TextView
 
-    @Volatile private var running = false
-    @Volatile private var switchingStream = false
-    @Volatile private var mainStream = true
-    @Volatile private var client: DvripClient? = null
-    private var worker: Thread? = null
+    private var session: LiveSession? = null
+    private var mainStream = true
     private var surface: Surface? = null
-    private val ptzExecutor = Executors.newSingleThreadExecutor()
 
     private var camera: Camera? = null
     private var zoomMode = false
@@ -113,7 +107,7 @@ class MainActivity : Activity(), TextureView.SurfaceTextureListener {
     }
 
     private fun switchTo(target: Camera?) {
-        if (target == camera && running) return
+        if (target == camera && session != null) return
         stopStreaming()
         camera = target
         visibleCameraId = target?.id
@@ -156,9 +150,9 @@ class MainActivity : Activity(), TextureView.SurfaceTextureListener {
             }
             return true
         }
-        PTZ_KEYS[keyCode]?.let { command ->
+        PTZ_KEYS[keyCode]?.let { direction ->
             // Holding the key auto-repeats; only the first press starts the move
-            if (event.repeatCount == 0) sendPtz(command, stop = false)
+            if (event.repeatCount == 0) session?.ptz(direction, stop = false)
             return true
         }
         when (keyCode) {
@@ -197,8 +191,8 @@ class MainActivity : Activity(), TextureView.SurfaceTextureListener {
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (zoomMode) return super.onKeyUp(keyCode, event)
-        PTZ_KEYS[keyCode]?.let { command ->
-            sendPtz(command, stop = true)
+        PTZ_KEYS[keyCode]?.let { direction ->
+            session?.ptz(direction, stop = true)
             return true
         }
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
@@ -208,19 +202,16 @@ class MainActivity : Activity(), TextureView.SurfaceTextureListener {
         return super.onKeyUp(keyCode, event)
     }
 
-    private fun sendPtz(command: String, stop: Boolean) {
-        val c = client ?: return
-        ptzExecutor.execute {
-            try { c.ptz(command, stop) } catch (_: IOException) {}
-        }
-    }
-
     private fun toggleQuality() {
-        if (camera == null) return
+        val s = surface ?: return
+        if (session?.supportsQuality != true) {
+            showStatus("Esta cámara tiene una sola calidad", autoHide = true)
+            return
+        }
         mainStream = !mainStream
+        stopStreaming()
+        startStreaming(s)
         showStatus(if (mainStream) "Calidad alta" else "Calidad baja (más fluida)", autoHide = true)
-        switchingStream = true
-        client?.close()
     }
 
     private fun cycleCamera(step: Int) {
@@ -360,57 +351,24 @@ class MainActivity : Activity(), TextureView.SurfaceTextureListener {
 
     private fun startStreaming(surface: Surface) {
         val cam = camera ?: return
-        running = true
-        worker = Thread({ streamLoop(cam, surface) }, "camera").apply { start() }
+        var shownHint = false
+        val listener = SessionListener(
+            status = { text, autoHide -> showStatus(text, autoHide) },
+            firstFrame = {
+                if (!shownHint) {
+                    shownHint = true
+                    runOnUiThread {
+                        if (!zoomMode) showStatus("${cam.name} · Flechas: mover · OK: calidad · Mantener OK: menú", autoHide = true)
+                    }
+                }
+            },
+        )
+        session = LiveSession.create(this, cam, surface, mainStream, listener).also { it.start() }
     }
 
     private fun stopStreaming() {
-        running = false
-        client?.close()
-        worker?.interrupt()
-        worker?.join(2000)
-        worker = null
-    }
-
-    private fun streamLoop(cam: Camera, surface: Surface) {
-        var quiet = false
-        while (running) {
-            if (!quiet) showStatus("Conectando a ${cam.name}…")
-            quiet = false
-            val c = DvripClient(cam)
-            client = c
-            val decoder = VideoDecoder(surface)
-            val audio = AudioPlayer()
-            try {
-                c.connect()
-                var firstFrame = true
-                c.stream(
-                    mainStream,
-                    onFrame = { frame ->
-                        decoder.submit(frame)
-                        if (firstFrame && frame.isKey) {
-                            firstFrame = false
-                            if (!zoomMode) showStatus("${cam.name} · Flechas: mover · OK: calidad · Mantener OK: menú", autoHide = true)
-                        }
-                    },
-                    onAudio = { codec, data -> if (!firstFrame) audio.play(codec, data) },
-                )
-            } catch (e: Exception) {
-                if (!running) break
-                if (switchingStream) {
-                    // Closed on purpose to change quality: reconnect right away
-                    switchingStream = false
-                    quiet = true
-                    continue
-                }
-                showStatus("${cam.name}: sin conexión (${e.message ?: e.javaClass.simpleName}). Reintentando…")
-                try { Thread.sleep(3000) } catch (_: InterruptedException) { break }
-            } finally {
-                c.close()
-                decoder.release()
-                audio.release()
-            }
-        }
+        session?.stop()
+        session = null
     }
 
     private fun showStatus(text: String, autoHide: Boolean = false) = runOnUiThread {
@@ -430,10 +388,10 @@ class MainActivity : Activity(), TextureView.SurfaceTextureListener {
         private const val PAN_STEP = 0.1f
 
         private val PTZ_KEYS = mapOf(
-            KeyEvent.KEYCODE_DPAD_UP to "DirectionUp",
-            KeyEvent.KEYCODE_DPAD_DOWN to "DirectionDown",
-            KeyEvent.KEYCODE_DPAD_LEFT to "DirectionLeft",
-            KeyEvent.KEYCODE_DPAD_RIGHT to "DirectionRight",
+            KeyEvent.KEYCODE_DPAD_UP to PtzDirection.UP,
+            KeyEvent.KEYCODE_DPAD_DOWN to PtzDirection.DOWN,
+            KeyEvent.KEYCODE_DPAD_LEFT to PtzDirection.LEFT,
+            KeyEvent.KEYCODE_DPAD_RIGHT to PtzDirection.RIGHT,
         )
     }
 }

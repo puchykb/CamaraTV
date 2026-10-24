@@ -7,6 +7,8 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- ONVIF WS-Discovery uses multicast -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
@@ -16,7 +18,8 @@
         android:banner="@drawable/banner"
         android:icon="@drawable/icon"
         android:label="@string/app_name"
-        android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+        android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".MainActivity"

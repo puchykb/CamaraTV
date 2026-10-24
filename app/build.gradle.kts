@@ -5,11 +5,10 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val cam = Properties().apply {
-    rootProject.file("camera.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+// Release signing key lives outside the project so it is never shared by accident
+val signing = Properties().apply {
+    rootProject.file("../CamaraTV-firma/keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
 }
-
-fun camProp(key: String, default: String) = "\"" + cam.getProperty(key, default) + "\""
 
 android {
     namespace = "com.pux.camaratv"
@@ -19,24 +18,25 @@ android {
         applicationId = "com.pux.camaratv"
         minSdk = 21
         targetSdk = 34
-        versionCode = 6
-        versionName = "2.0"
-
-        buildConfigField("String", "CAM_HOST", camProp("camera.host", "192.168.100.71"))
-        buildConfigField("int", "CAM_PORT", cam.getProperty("camera.port", "34567"))
-        buildConfigField("String", "CAM_USER", camProp("camera.user", "admin"))
-        buildConfigField("String", "CAM_PASS", camProp("camera.pass", ""))
+        versionCode = 7
+        versionName = "3.0"
     }
 
-    buildFeatures {
-        buildConfig = true
+    signingConfigs {
+        if (signing.containsKey("storeFile")) {
+            create("release") {
+                storeFile = file(signing.getProperty("storeFile"))
+                storePassword = signing.getProperty("storePassword")
+                keyAlias = signing.getProperty("keyAlias")
+                keyPassword = signing.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Firmado con la clave debug para poder instalarlo directo en el TV box
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 
@@ -47,4 +47,9 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+}
+
+dependencies {
+    implementation("androidx.media3:media3-exoplayer:1.4.1")
+    implementation("androidx.media3:media3-exoplayer-rtsp:1.4.1")
 }

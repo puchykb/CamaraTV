@@ -37,7 +37,14 @@ class CamerasActivity : Activity() {
         empty.visibility = if (cameras.isEmpty()) View.VISIBLE else View.GONE
         list.adapter = SimpleAdapter(
             this,
-            cameras.mapIndexed { i, c -> mapOf("title" to "${i + 1}. ${c.name}", "detail" to "${c.host}:${c.port} · usuario ${c.user}") },
+            cameras.mapIndexed { i, c ->
+                val kind = when (c.type) {
+                    CameraType.XMEYE -> "XMEye/iCSee"
+                    CameraType.ONVIF -> "ONVIF"
+                    CameraType.RTSP -> "RTSP"
+                }
+                mapOf("title" to "${i + 1}. ${c.name}", "detail" to "$kind · ${c.host}:${c.port} · usuario ${c.user}")
+            },
             android.R.layout.simple_list_item_2,
             arrayOf("title", "detail"),
             intArrayOf(android.R.id.text1, android.R.id.text2),
