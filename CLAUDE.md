@@ -27,6 +27,16 @@ Estado actual:
 
 Las dos firmas son distintas: pasar un equipo de v2 a v3 requiere desinstalar primero.
 
+## GitHub
+
+Repo público: https://github.com/puchykb/CamaraTV — cada versión para compartir se publica como Release con el APK adjunto (`gh release create vX.Y <apk>`).
+
+**Cuenta: solo `puchykb`.** En esta PC hay otras cuentas de GitHub de otros proyectos (discoveryparaguay, webmaster-motorhub) en la config global de git y en el administrador de credenciales de Windows: no tocarlas ni usarlas. Este repo tiene config local:
+- `user.name=puchykb`, `user.email=267768372+puchykb@users.noreply.github.com`
+- `credential.helper` vaciado y reemplazado por `gh auth git-credential` (gh logueado como puchykb).
+
+Antes de un push, verificar con `printf 'protocol=https\nhost=github.com\n\n' | git credential fill` (en Bash) que el usuario sea `puchykb`. El tag `v2.0` (versión del TV del usuario) no se publica.
+
 ## Firma
 
 La firma de release está **fuera del proyecto**, en `..\CamaraTV-firma\` (`camaratv-release.jks` + `keystore.properties` con la contraseña). `app/build.gradle.kts` la lee de ahí; si no existe, firma con la clave debug. Sin ese archivo no se pueden publicar actualizaciones que se instalen encima: hay que tener copia de seguridad.
