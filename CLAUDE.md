@@ -13,6 +13,20 @@ $env:JAVA_HOME="C:\Program Files\Android\Android Studio\jbr"
 
 APK: `app\build\outputs\apk\release\app-release.apk`. Subir `versionCode`/`versionName` en `app/build.gradle.kts` en cada versión.
 
+## Versiones (no borrar nunca)
+
+El usuario quiere poder volver a cualquier versión anterior. En cada versión nueva:
+
+1. Subir `versionCode`/`versionName`, compilar.
+2. Copiar el APK a `..\CamaraTV-versiones\CamaraTV-vX.Y-<destino>.apk` (nunca sobrescribir ni borrar los anteriores).
+3. `git commit` + `git tag -a vX.Y` en este repo.
+
+Estado actual:
+- **v2.0** (tag `v2.0`) → **TV box del usuario**. Firma debug, siembra su cámara desde `camera.properties`. Se compila desde `..\CamaraTV-v2build\` (copia de trabajo de v2.0 que sí tiene `camera.properties`; no se versiona en git).
+- **v3.0** (tag `v3.0`) → **para compartir** con amigos. Firma propia, sin credenciales.
+
+Las dos firmas son distintas: pasar un equipo de v2 a v3 requiere desinstalar primero.
+
 ## Firma
 
 La firma de release está **fuera del proyecto**, en `..\CamaraTV-firma\` (`camaratv-release.jks` + `keystore.properties` con la contraseña). `app/build.gradle.kts` la lee de ahí; si no existe, firma con la clave debug. Sin ese archivo no se pueden publicar actualizaciones que se instalen encima: hay que tener copia de seguridad.
