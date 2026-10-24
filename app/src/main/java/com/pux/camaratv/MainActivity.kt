@@ -85,6 +85,17 @@ class MainActivity : Activity(), TextureView.SurfaceTextureListener {
         intent.getStringExtra(EXTRA_CAMERA_ID)?.let { id -> CameraStore.get(this, id)?.let { switchTo(it) } }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (session == null && camera != null) surface?.let { startStreaming(it) }
+    }
+
+    /** The surface outlives HOME, so stop here or video and audio keep running behind YouTube. */
+    override fun onStop() {
+        stopStreaming()
+        super.onStop()
+    }
+
     override fun onResume() {
         super.onResume()
         // The camera may have been edited, deleted or added in the settings screens

@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.KeyEvent
@@ -48,8 +49,8 @@ class MotionService : Service() {
     /** Called on every start(), so it also reloads the camera list after it changes. */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         stopWatchers()
-        // Motion events come over the XMEye protocol; ONVIF/RTSP cameras are view-only for now
-        CameraStore.all(this).filter { it.type == CameraType.XMEYE }
+        // Plain RTSP cameras have no way to report motion
+        CameraStore.all(this).filter { it.type != CameraType.RTSP }
             .forEach { camera -> watchers += Watcher(camera).also { it.start() } }
         return START_STICKY
     }
@@ -68,31 +69,45 @@ class MotionService : Service() {
     /** Listens to one camera's alarms, reconnecting quietly if it or the Wi-Fi drops. */
     private inner class Watcher(private val camera: Camera) {
         @Volatile private var running = true
-        @Volatile private var client: DvripClient? = null
+        @Volatile private var cancel: (() -> Unit)? = null
         private val thread = Thread({ loop() }, "motion-${camera.host}")
 
         fun start() = thread.start()
 
         fun stop() {
             running = false
-            client?.close()
+            cancel?.invoke()
             thread.interrupt()
         }
 
         private fun loop() {
             while (running) {
-                val c = DvripClient(camera)
-                client = c
+                var retryMs = 10_000L
                 try {
-                    c.connect()
-                    c.watchAlarms { alarm -> onAlarm(camera, alarm) }
-                } catch (_: Exception) {
-                    // Retry below
-                } finally {
-                    c.close()
+                    when (camera.type) {
+                        CameraType.XMEYE -> DvripClient(camera).use { c ->
+                            cancel = { c.close() }
+                            c.connect()
+                            c.watchAlarms { alarm -> onAlarm(camera, alarm) }
+                        }
+                        CameraType.ONVIF -> {
+                            val c = OnvifClient(camera)
+                            cancel = { c.cancel() }
+                            c.connect()
+                            if (!c.hasEvents) {
+                                retryMs = 30 * 60_000L // this camera has no ONVIF events; check again much later
+                                throw OnvifException("Sin eventos ONVIF")
+                            }
+                            retryMs = 60_000L // don't hammer cameras whose event service misbehaves
+                            c.watchMotion { alarm -> onAlarm(camera, alarm) }
+                        }
+                        CameraType.RTSP -> return
+                    }
+                } catch (e: Exception) {
+                    if (running) Log.w(TAG, "${camera.name}: ${e.message}; retrying in ${retryMs / 1000}s", e)
                 }
                 if (!running) break
-                try { Thread.sleep(10_000) } catch (_: InterruptedException) { break }
+                try { Thread.sleep(retryMs) } catch (_: InterruptedException) { break }
             }
         }
     }
@@ -249,6 +264,7 @@ class MotionService : Service() {
     private fun notificationManager() = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     companion object {
+        private const val TAG = "MotionService"
         private const val CHANNEL_ONGOING = "ongoing"
         private const val CHANNEL_ALERTS = "alerts"
         private const val ONGOING_ID = 1

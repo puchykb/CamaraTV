@@ -16,9 +16,10 @@ Mirá tus cámaras de seguridad en la tele. App para **Android TV** (TV box, Goo
 | Tipo | Marcas / apps | Video | PTZ | Avisos |
 |---|---|:-:|:-:|:-:|
 | **XMEye / iCSee** | Cámaras y grabadores Xiongmai genéricos (apps XMEye, iCSee, XMEye Pro) | ✅ | ✅ | ✅ |
-| **ONVIF** | Hikvision, Dahua, Imou, Tapo, Reolink, Uniview y la mayoría de cámaras IP | ✅ | ✅ | — |
+| **ONVIF** | Hikvision, Dahua, Imou, Tapo, Reolink, Uniview y la mayoría de cámaras IP | ✅ | ✅ | ✅* |
 | **RTSP** | Cualquier cámara que dé una URL `rtsp://` | ✅ | — | — |
 
+> \* En ONVIF los avisos necesitan que la cámara tenga la **detección de movimiento activada** (en su app o página web) y que ofrezca eventos ONVIF; al tocar "Probar conexión" la app indica si la cámara tiene avisos o no. Si detecta personas, el aviso dice "Persona detectada".
 > Las cámaras que funcionan **solo por la nube** (Ring, Blink, Wyze, la mayoría de Ezviz) no tienen video local y no son compatibles.
 > En **Tapo** hay que crear una "cuenta de cámara" en la app Tapo (Configuración avanzada) para habilitar ONVIF/RTSP.
 
