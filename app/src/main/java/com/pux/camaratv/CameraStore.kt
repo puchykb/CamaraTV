@@ -5,6 +5,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
+enum class CameraType(val label: String, val defaultPort: Int) {
+    XMEYE("XMEye / iCSee", 34567),
+    ONVIF("ONVIF (Hikvision, Dahua, Tapo, Reolink…)", 80),
+    RTSP("RTSP (URL manual)", 554),
+}
+
 data class Camera(
     val id: String,
     val name: String,
@@ -12,6 +18,9 @@ data class Camera(
     val port: Int,
     val user: String,
     val password: String,
+    val type: CameraType = CameraType.XMEYE,
+    /** Only for [CameraType.RTSP]: full stream URL, credentials are added from user/password. */
+    val rtspUrl: String = "",
 )
 
 /** The list of cameras, kept in the app's private preferences. */
@@ -20,27 +29,20 @@ object CameraStore {
     private fun prefs(context: Context) = context.getSharedPreferences("cameras", Context.MODE_PRIVATE)
 
     fun all(context: Context): List<Camera> {
-        val raw = prefs(context).getString("list", null)
-        if (raw == null) {
-            // First run: start with the camera configured at build time, if any
-            val seed = if (BuildConfig.CAM_HOST.isNotEmpty()) {
-                listOf(Camera(newId(), "Cámara 1", BuildConfig.CAM_HOST, BuildConfig.CAM_PORT, BuildConfig.CAM_USER, BuildConfig.CAM_PASS))
-            } else {
-                emptyList()
-            }
-            write(context, seed)
-            return seed
-        }
+        val raw = prefs(context).getString("list", null) ?: return emptyList()
         val array = JSONArray(raw)
         return (0 until array.length()).map { i ->
             val o = array.getJSONObject(i)
+            val type = runCatching { CameraType.valueOf(o.optString("type")) }.getOrDefault(CameraType.XMEYE)
             Camera(
                 o.getString("id"),
                 o.optString("name", "Cámara ${i + 1}"),
-                o.getString("host"),
-                o.optInt("port", DEFAULT_PORT),
+                o.optString("host"),
+                o.optInt("port", type.defaultPort),
                 o.optString("user", "admin"),
                 o.optString("password", ""),
+                type,
+                o.optString("rtspUrl", ""),
             )
         }
     }
@@ -76,7 +78,9 @@ object CameraStore {
                     .put("host", it.host)
                     .put("port", it.port)
                     .put("user", it.user)
-                    .put("password", it.password),
+                    .put("password", it.password)
+                    .put("type", it.type.name)
+                    .put("rtspUrl", it.rtspUrl),
             )
         }
         prefs(context).edit().putString("list", array.toString()).apply()
@@ -86,6 +90,4 @@ object CameraStore {
     private fun onChanged(context: Context) {
         if (AlertSettings.mode(context) != AlertSettings.Mode.OFF) MotionService.start(context)
     }
-
-    const val DEFAULT_PORT = 34567
 }

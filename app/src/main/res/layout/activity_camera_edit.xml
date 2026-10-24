@@ -17,6 +17,32 @@
             android:text="Agregar cámara"
             android:textSize="32sp" />
 
+        <TextView style="@style/FieldLabel" android:text="Tipo de cámara" />
+        <RadioGroup
+            android:id="@+id/type"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <RadioButton
+                android:id="@+id/typeXmeye"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="18sp" />
+
+            <RadioButton
+                android:id="@+id/typeOnvif"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="18sp" />
+
+            <RadioButton
+                android:id="@+id/typeRtsp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="18sp" />
+        </RadioGroup>
+
         <TextView style="@style/FieldLabel" android:text="Nombre" />
         <EditText
             android:id="@+id/name"
@@ -24,20 +50,33 @@
             android:hint="Ej: Patio, Entrada, Garage"
             android:inputType="textCapSentences" />
 
-        <TextView style="@style/FieldLabel" android:text="Dirección IP" />
+        <TextView android:id="@+id/hostLabel" style="@style/FieldLabel" android:text="Dirección IP" />
         <EditText
             android:id="@+id/host"
             style="@style/Field"
             android:digits="0123456789."
-            android:hint="192.168.100.71"
+            android:hint="192.168.1.64"
             android:inputType="number|numberDecimal" />
 
-        <TextView style="@style/FieldLabel" android:text="Puerto" />
+        <TextView android:id="@+id/portLabel" style="@style/FieldLabel" android:text="Puerto" />
         <EditText
             android:id="@+id/port"
             style="@style/Field"
-            android:hint="34567"
             android:inputType="number" />
+
+        <TextView android:id="@+id/urlLabel" style="@style/FieldLabel" android:text="URL RTSP" />
+        <EditText
+            android:id="@+id/url"
+            style="@style/Field"
+            android:hint="rtsp://192.168.1.64:554/Streaming/Channels/101"
+            android:inputType="textUri" />
+        <TextView
+            android:id="@+id/urlHelp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:alpha="0.6"
+            android:text="Ejemplos — Hikvision: /Streaming/Channels/101 · Dahua/Imou: /cam/realmonitor?channel=1&amp;subtype=0 · Tapo: /stream1 · Reolink: /h264Preview_01_main"
+            android:textSize="14sp" />
 
         <TextView style="@style/FieldLabel" android:text="Usuario" />
         <EditText

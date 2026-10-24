@@ -48,7 +48,9 @@ class MotionService : Service() {
     /** Called on every start(), so it also reloads the camera list after it changes. */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         stopWatchers()
-        CameraStore.all(this).forEach { camera -> watchers += Watcher(camera).also { it.start() } }
+        // Motion events come over the XMEye protocol; ONVIF/RTSP cameras are view-only for now
+        CameraStore.all(this).filter { it.type == CameraType.XMEYE }
+            .forEach { camera -> watchers += Watcher(camera).also { it.start() } }
         return START_STICKY
     }
 
