@@ -55,9 +55,10 @@ Para probar sin TV: emulador `Medium_Phone_API_35` (`emulator -avd Medium_Phone_
 
 ## Tipos de cámara (`CameraType`)
 
-- **XMEYE** (XMEye/iCSee, Xiongmai, TCP 34567): `DvripClient` + `VideoDecoder` (MediaCodec) + `AudioPlayer` (G.711). Único tipo con avisos de movimiento.
+- **XMEYE** (XMEye/iCSee, Xiongmai, TCP 34567): `DvripClient` + `VideoDecoder` (MediaCodec) + `AudioPlayer` (G.711). Avisos por Guard/1504.
 - **ONVIF** (Hikvision, Dahua, Tapo, Reolink, Uniview…): `OnvifClient` (SOAP + WS-Security digest, compensa el reloj de la cámara con GetSystemDateAndTime) pide perfiles y URL RTSP; se reproduce con Media3 ExoPlayer (RTSP sobre TCP). PTZ con ContinuousMove/Stop.
-- **RTSP** (URL manual): ExoPlayer directo; usuario/contraseña se insertan en la URL.
+  Avisos (desde v3.1): `watchMotion` = CreatePullPointSubscription + PullMessages (long-poll 10 s) + Renew cada 30 s, con cabeceras WS-Addressing y los ReferenceParameters de la suscripción (Dahua los exige). Topics con "Motion" → VideoMotion, People/Human/Person → HumanDetect; se ignora `PropertyOperation="Initialized"`. Hasta 3 pulls fallidos seguidos se reintentan sin perder la suscripción.
+- **RTSP** (URL manual): ExoPlayer directo; usuario/contraseña se insertan en la URL. Sin avisos (RTSP no tiene eventos).
 
 ## Arquitectura (`app/src/main/java/com/pux/camaratv/`)
 
@@ -68,13 +69,14 @@ Para probar sin TV: emulador `Medium_Phone_API_35` (`emulator -avd Medium_Phone_
 - `MainActivity.kt` — vista en vivo en un TextureView (zoom digital por escala/traslación), control remoto, menú.
 - `CameraStore.kt` — `Camera`/`CameraType`, lista en SharedPreferences (JSON).
 - `CamerasActivity` / `CameraEditActivity` / `ScanActivity` — configuración; la búsqueda combina WS-Discovery (ONVIF), puerto 34567 y puerto 554.
-- `MotionService.kt` — servicio en primer plano, una conexión de alarmas por cámara XMEye, banner overlay.
+- `MotionService.kt` — servicio en primer plano, un `Watcher` por cámara XMEye u ONVIF (reintento 10 s XMEye / 60 s ONVIF / 30 min si la cámara no tiene eventos), banner overlay. Los errores se registran en logcat con el tag `MotionService`.
+- `MainActivity` corta el stream en `onStop` (si no, seguía el video/audio de fondo al apretar HOME) y lo retoma en `onStart`.
 - `AlertSettings.kt` — avisos siempre / de noche / pausados / desactivados. `BootReceiver.kt` — arranque.
 
 Dependencias: solo Media3 (`media3-exoplayer`, `media3-exoplayer-rtsp` 1.4.1). compileSdk 34, minSdk 21, AGP 8.7.3, Kotlin 2.0.0, Gradle 8.9.
 
 ## Pendiente / ideas
 
-- Avisos de movimiento para cámaras ONVIF (eventos PullPoint).
-- Probar ONVIF/RTSP con cámaras reales de varias marcas (solo se probó contra una cámara ONVIF simulada).
+- Probar ONVIF/RTSP (video, PTZ y avisos) con cámaras reales de varias marcas (solo se probó contra una cámara ONVIF simulada: `onvif_mock.py` en el scratchpad de la sesión).
+- La v2.0 (TV del usuario) tiene el mismo problema de seguir transmitiendo al apretar HOME; se corrigió recién en v3.1.
 - App para Samsung TV (Tizen).

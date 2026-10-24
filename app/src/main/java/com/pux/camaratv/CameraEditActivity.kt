@@ -146,7 +146,9 @@ class CameraEditActivity : Activity() {
                         val profiles = c.profiles()
                         if (profiles.isEmpty()) throw OnvifException("La cámara no tiene perfiles de video")
                         c.streamUri(profiles[0])
-                        "✔ Conectado: $device" + if (c.hasPtz) " · con PTZ" else ""
+                        "✔ Conectado: $device" +
+                            (if (c.hasPtz) " · con PTZ" else "") +
+                            (if (c.hasEvents) " · con avisos de movimiento" else " · sin avisos de movimiento")
                     }
                     CameraType.RTSP -> {
                         if (!rtspAnswers(cam.host, cam.port)) throw java.io.IOException("No responde como servidor RTSP")
