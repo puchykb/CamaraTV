@@ -18,8 +18,8 @@ android {
         applicationId = "com.pux.camaratv"
         minSdk = 21
         targetSdk = 34
-        versionCode = 8
-        versionName = "3.1"
+        versionCode = 9
+        versionName = "3.2"
     }
 
     signingConfigs {

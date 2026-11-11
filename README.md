@@ -10,6 +10,7 @@ Mirá tus cámaras de seguridad en la tele. App para **Android TV** (TV box, Goo
 - 📷 **Varias cámaras**: cambiás con CH+/CH-, con los números 1-9 o desde el menú.
 - 🔎 **Búsqueda automática** de cámaras en tu red.
 - 🔔 **Avisos de movimiento** que aparecen encima de lo que estés viendo (YouTube, Netflix, la tele…), con opción de abrir la cámara al instante. Se pueden pausar, dejar solo de noche o desactivar.
+- ⏺️ **Ver grabaciones**: línea de tiempo tipo DVR para revisar lo grabado en la memoria de la cámara, moviéndote con las flechas del control (solo cámaras XMEye).
 
 ## Cámaras compatibles
 
@@ -36,9 +37,10 @@ Mirá tus cámaras de seguridad en la tele. App para **Android TV** (TV box, Goo
 |---|---|
 | Flechas (mantener) | Mover la cámara (PTZ) |
 | OK | Cambiar calidad alta / baja |
-| Mantener OK o Menú | Menú: zoom, cambiar cámara, avisos, configurar |
+| Mantener OK o Menú | Menú: zoom, grabaciones, cambiar cámara, avisos, configurar |
 | CH+ / CH- o 1-9 | Cambiar de cámara |
 | En modo zoom: OK / flechas / Atrás | Más zoom / recorrer / salir |
+| En grabaciones: ◄► / ▲▼ / OK | Mover el cursor / cambiar de día / reproducir |
 
 Para agregar cámaras: **Mantener OK → Configurar cámaras → Buscar cámaras en la red** (o agregarla a mano con su IP).
 

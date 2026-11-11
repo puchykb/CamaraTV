@@ -4,6 +4,7 @@ import org.json.JSONObject
 import java.io.BufferedInputStream
 import java.io.Closeable
 import java.io.DataInputStream
+import java.io.EOFException
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -14,6 +15,12 @@ import java.security.MessageDigest
 
 /** A complete video frame (one access unit, Annex-B) pulled out of the camera stream. */
 class VideoFrame(val data: ByteArray, val isKey: Boolean, val codec: Int, val width: Int, val height: Int, val fps: Int)
+
+/** One recorded clip on the camera's storage. Times are "yyyy-MM-dd HH:mm:ss". */
+class Recording(val begin: String, val end: String, val fileName: String) {
+    /** The camera tags motion/human clips in the file name ([M]/[H]); scheduled ones are [R]. */
+    val isMotion: Boolean get() = fileName.contains("[M]") || fileName.contains("[H]")
+}
 
 class DvripException(message: String) : IOException(message)
 
@@ -90,6 +97,109 @@ class DvripClient(
                 send(KEEPALIVE_REQ, JSONObject().put("Name", "KeepAlive").put("SessionID", sessionHex))
                 nextKeepAlive = System.currentTimeMillis() + aliveIntervalMs
             }
+        }
+    }
+
+    /**
+     * Lists the clips recorded between [from] and [to] ("yyyy-MM-dd HH:mm:ss"), paging through the
+     * camera's OPFileQuery responses (which cap the number of entries per reply).
+     */
+    fun queryRecordings(from: String, to: String): List<Recording> {
+        val out = ArrayList<Recording>()
+        val seen = HashSet<String>()
+        var begin = from
+        var guard = 0
+        while (guard++ < 50) {
+            val resp = request(
+                FILEQUERY_REQ,
+                JSONObject()
+                    .put("Name", "OPFileQuery")
+                    .put("SessionID", sessionHex)
+                    .put(
+                        "OPFileQuery",
+                        JSONObject()
+                            .put("BeginTime", begin)
+                            .put("EndTime", to)
+                            .put("Channel", 0)
+                            .put("DriverTypeMask", "0x0000FFFF")
+                            .put("Event", "*")
+                            .put("Type", "h264")
+                            .put("StreamType", "0x00000000"),
+                    ),
+            )
+            val arr = resp.optJSONArray("OPFileQuery") ?: break
+            if (arr.length() == 0) break
+            var last = begin
+            var added = 0
+            for (i in 0 until arr.length()) {
+                val o = arr.getJSONObject(i)
+                val file = o.optString("FileName")
+                if (seen.add(file)) {
+                    out += Recording(o.optString("BeginTime"), o.optString("EndTime"), file)
+                    added++
+                }
+                val e = o.optString("EndTime")
+                if (e > last) last = e
+            }
+            // Times sort lexicographically, so keep paging from the last clip until no progress.
+            if (added == 0 || last <= begin || last >= to) break
+            begin = last
+        }
+        out.sortBy { it.begin }
+        return out
+    }
+
+    /**
+     * Plays the recording for the time range [from]..[to] ("yyyy-MM-dd HH:mm:ss"), reusing the same
+     * frame format as live view. Calls [onFrame]/[onAudio] until [shouldStop] is true, the range ends
+     * (socket EOF) or the connection drops.
+     */
+    fun playback(
+        from: String,
+        to: String,
+        onFrame: (VideoFrame) -> Unit,
+        onAudio: (Int, ByteArray) -> Unit,
+        shouldStop: () -> Boolean,
+    ) {
+        val param = JSONObject()
+            .put("PlayMode", "ByTime")
+            .put("FileName", "")
+            .put("StreamType", 0)
+            .put("Value", 0)
+            .put("TransMode", "TCP")
+            .put("BeginTime", from)
+            .put("EndTime", to)
+            .put("Channel", 0)
+        fun op(action: String): JSONObject {
+            val inner = JSONObject().put("Action", action).put("Parameter", param)
+            if (action == "Start") inner.put("StartTime", from).put("EndTime", to)
+            return JSONObject().put("Name", "OPPlayBack").put("SessionID", sessionHex).put("OPPlayBack", inner)
+        }
+
+        val claim = request(PLAYBACK_CLAIM_REQ, op("Claim"))
+        if (claim.optInt("Ret") != 100) throw DvripException("La cámara no permitió la reproducción (código ${claim.optInt("Ret")})")
+        send(PLAYBACK_REQ, op("Start"))
+
+        val parser = MediaParser(onFrame, onAudio)
+        socket.soTimeout = 8000
+        var nextKeepAlive = System.currentTimeMillis() + aliveIntervalMs
+        try {
+            while (!shouldStop()) {
+                val packet = try {
+                    readPacket()
+                } catch (_: SocketTimeoutException) {
+                    null // quiet moment: fall through to the keep-alive / stop checks
+                } catch (_: EOFException) {
+                    break // the camera closed the stream: end of the recording
+                }
+                if (packet != null && packet.first == PLAYBACK_DATA) parser.feed(packet.second)
+                if (System.currentTimeMillis() >= nextKeepAlive) {
+                    send(KEEPALIVE_REQ, JSONObject().put("Name", "KeepAlive").put("SessionID", sessionHex))
+                    nextKeepAlive = System.currentTimeMillis() + aliveIntervalMs
+                }
+            }
+        } finally {
+            try { send(PLAYBACK_REQ, op("Stop")) } catch (_: Exception) {}
         }
     }
 
@@ -288,6 +398,10 @@ class DvripClient(
         private const val MONITOR_REQ = 1410
         private const val MONITOR_DATA = 1412
         private const val MONITOR_CLAIM_REQ = 1413
+        private const val FILEQUERY_REQ = 1440
+        private const val PLAYBACK_REQ = 1420
+        private const val PLAYBACK_DATA = 1422
+        private const val PLAYBACK_CLAIM_REQ = 1424
 
         /** XMEye "Sofia" password hash: MD5 folded into 8 alphanumeric characters. */
         fun sofiaHash(password: String): String {

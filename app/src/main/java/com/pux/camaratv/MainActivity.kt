@@ -294,6 +294,11 @@ class MainActivity : Activity(), TextureView.SurfaceTextureListener {
         val items = mutableListOf<Pair<String, () -> Unit>>()
         if (all.size > 1) items += "Cambiar de cámara" to { chooseCamera(all) }
         if (camera != null) items += "Zoom" to { enterZoomMode() }
+        camera?.takeIf { it.type == CameraType.XMEYE }?.let { cam ->
+            items += "Ver grabaciones" to {
+                startActivity(Intent(this, RecordingsActivity::class.java).putExtra(EXTRA_CAMERA_ID, cam.id))
+            }
+        }
         items += "Avisos de movimiento (${AlertSettings.describe(this)})" to { showAlertOptions() }
         items += "Configurar cámaras" to { startActivity(Intent(this, CamerasActivity::class.java)) }
 
