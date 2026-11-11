@@ -5,3 +5,6 @@ build/
 local.properties
 camera.properties
 *.iml
+
+# Notas internas de desarrollo (no publicar)
+CLAUDE.md
